@@ -1,0 +1,39 @@
+name: Backend CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm install
+        working-directory: Backend
+
+      # Step 4: Run tests
+      - name: Run tests
+        run: npm test
+        working-directory: Backend
+
+      # Step 5: Build Docker image (optional)
+      - name: Build Docker image
+        run: docker build -t job-seeking-portal-backend .
+        working-directory: Backend
