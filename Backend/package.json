@@ -5,14 +5,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-   "start": "server.js",
-   "dev": "nodemon server.js"
+    "start": "server.js",
+    "dev": "nodemon server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.1",
-    "cloudinary": "^2.5.1",
+    "cloudinary": "^2.6.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
