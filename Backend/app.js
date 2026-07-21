@@ -27,7 +27,15 @@ if (!process.env.FRONTEND_URL) {
 }
 
 // Security headers
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      frameSrc: ["'self'", "https://res.cloudinary.com"],
+      imgSrc: ["'self'", "https://res.cloudinary.com", "data:"],
+    },
+  },
+}));
 
 // Enable CORS
 app.use(
