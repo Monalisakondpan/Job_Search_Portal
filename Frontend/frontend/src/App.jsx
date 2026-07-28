@@ -20,10 +20,8 @@ import AdminDashboard from "./components/Admin/AdminDashboard";
 import ForgotPassword from "./components/Auth/ForgotPassword";
 import ResetPassword from "./components/Auth/ResetPassword";
 import { API_BASE_URL } from "./utils/apiBaseUrl";
-
 const App = () => {
   const { setIsAuthorized, setUser } = useContext(Context);
-
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -33,7 +31,7 @@ const App = () => {
         );
         setUser(response.data.user);
         setIsAuthorized(true);
-      } catch (error) {
+      } catch {
         // A 401 here just means "not logged in yet" — expected, not a real error.
         // Silently mark as logged out without surfacing anything.
         setIsAuthorized(false);
@@ -44,7 +42,6 @@ const App = () => {
     // Run ONCE on mount only. Removing the [isAuthorized] dependency stops the
     // check from re-firing (and re-triggering the harmless 401) on every change.
   }, []);
-
   return (
     <>
       <BrowserRouter>
