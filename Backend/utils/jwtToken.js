@@ -5,11 +5,10 @@ export const sendToken = (user, statusCode, res, message) => {
             Date.now() + process.env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000
         ),
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: true,
+        sameSite: "none",
     };
 
-    // Send a SAFE user object — never the password hash or internal fields.
     const safeUser = {
         _id: user._id,
         name: user.name,
@@ -21,6 +20,5 @@ export const sendToken = (user, statusCode, res, message) => {
         success: true,
         user: safeUser,
         message,
-        // token NO LONGER returned in body — prevents leak/replay
     });
 };
