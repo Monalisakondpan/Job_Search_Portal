@@ -1,9 +1,10 @@
+import crypto from "crypto";
 import { catchAsyncError } from "../middlewares/catchAsyncError.js";
 import ErrorHandler from "../middlewares/error.js";
 import { User } from "../models/userSchema.js";
 import { sendToken } from "../utils/jwtToken.js";
 import { isPlainString, cleanString } from "../utils/sanitize.js";
-import { sendEmail, notifyAdmin, welcomeEmailHtml, accountDeletedEmailHtml } from "../utils/sendEmail.js";
+import { sendEmail, notifyAdmin, welcomeEmailHtml, accountDeletedEmailHtml, resetPasswordEmailHtml } from "../utils/sendEmail.js";
 
 export const register = catchAsyncError(async (req, res, next) => {
    const { name, email, phone, role, password } = req.body;
@@ -53,7 +54,6 @@ export const register = catchAsyncError(async (req, res, next) => {
 export const login = catchAsyncError(async (req, res, next) => {
    const { email, password, role } = req.body;
 
-   // Type guard — blocks NoSQL injection login bypass.
    if (![email, password, role].every(isPlainString)) {
       return next(new ErrorHandler("Please provide valid email, password and role.", 400));
    }
@@ -79,8 +79,8 @@ export const login = catchAsyncError(async (req, res, next) => {
 export const logout = catchAsyncError(async (req, res, next) => {
    res.status(200).cookie("token", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: true,
+      sameSite: "none",
       expires: new Date(Date.now()),
    }).json({
       success: true,
@@ -94,7 +94,6 @@ export const getUser = catchAsyncError((req, res, next) => {
 });
 
 export const deleteMyAccount = catchAsyncError(async (req, res, next) => {
-   // Capture details BEFORE deleting, so we can email the user a goodbye.
    const { name, email } = req.user;
 
    await User.findByIdAndDelete(req.user._id);
@@ -120,11 +119,80 @@ export const deleteMyAccount = catchAsyncError(async (req, res, next) => {
 
    res.status(200).cookie("token", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: true,
+      sameSite: "none",
       expires: new Date(Date.now()),
    }).json({
       success: true,
       message: "Account deleted successfully!",
    });
+});
+
+// ---- FORGOT PASSWORD ----
+export const forgotPassword = catchAsyncError(async (req, res, next) => {
+   const { email } = req.body;
+
+   if (!isPlainString(email)) {
+     return next(new ErrorHandler("Please provide a valid email.", 400));
+   }
+
+   const user = await User.findOne({ email: cleanString(email) });
+
+   // Always respond success — don't reveal if email exists or not (security).
+   const genericMessage = "If an account exists for this email, a reset link has been sent.";
+
+   if (!user) {
+     return res.status(200).json({ success: true, message: genericMessage });
+   }
+
+   const resetToken = user.getResetPasswordToken();
+   await user.save({ validateBeforeSave: false });
+
+   const resetUrl = `${process.env.FRONTEND_URL}/password/reset/${resetToken}`;
+
+   try {
+     await sendEmail({
+       to: user.email,
+       subject: "CareerForge — Password Reset Request",
+       html: resetPasswordEmailHtml({ name: user.name, resetUrl }),
+     });
+     res.status(200).json({ success: true, message: genericMessage });
+   } catch (err) {
+     user.resetPasswordToken = undefined;
+     user.resetPasswordExpire = undefined;
+     await user.save({ validateBeforeSave: false });
+     console.error("Failed to send reset email:", err.message);
+     return next(new ErrorHandler("Email could not be sent. Please try again later.", 500));
+   }
+});
+
+// ---- RESET PASSWORD ----
+export const resetPassword = catchAsyncError(async (req, res, next) => {
+   const { token } = req.params;
+   const { password } = req.body;
+
+   if (!isPlainString(password) || password.length > 64) {
+     return next(new ErrorHandler("Please provide a valid password.", 400));
+   }
+
+   const resetPasswordToken = crypto
+     .createHash("sha256")
+     .update(token)
+     .digest("hex");
+
+   const user = await User.findOne({
+     resetPasswordToken,
+     resetPasswordExpire: { $gt: Date.now() },
+   });
+
+   if (!user) {
+     return next(new ErrorHandler("Reset link is invalid or has expired.", 400));
+   }
+
+   user.password = password;
+   user.resetPasswordToken = undefined;
+   user.resetPasswordExpire = undefined;
+   await user.save();
+
+   sendToken(user, 200, res, "Password reset successfully!");
 });
